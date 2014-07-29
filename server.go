@@ -30,7 +30,8 @@ func imageHandler(ws *websocket.Conn) {
 	hasher := md5.New()
 	hasher.Write([]byte(Image))
 	Sum := hex.EncodeToString(hasher.Sum(nil))
-	ioutil.WriteFile(Sum + ".jpg", Image, 0644)
+	ioutil.WriteFile("images/" + Sum + ".jpg", Image, 0644)
+	log.Printf("Saved new image at %s", "images/" + Sum + ".jpg")
 }
 
 func main() {
