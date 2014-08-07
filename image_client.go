@@ -3,14 +3,14 @@ package main
 import (
 	"code.google.com/p/go.net/websocket"
 	"encoding/base64"
-	"io/ioutil"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 )
 
 type ImageUpload struct {
-	User string
+	User  string
 	Image string
 }
 

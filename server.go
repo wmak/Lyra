@@ -16,16 +16,24 @@ type ImageUpload struct {
 	Image string
 }
 
-type ImageResult struct {
-	Faces string
+type Library struct {
+	User  string
+	Songs []Song
+}
+
+type Song struct {
+	Name   string
+	Artist string
+	Length int
+	Genre  string
 }
 
 func analysis(ws *websocket.Conn, path string) {
-	out, err := exec.Command("python2.7", "analysis/analysis.py", path).Output()
+	_, err := exec.Command("python2.7", "analysis/analysis.py", path).Output()
 	if err != nil {
 		log.Fatal("error:", err)
 	}
-	ws.Write(out)
+	websocket.Message.Send(ws, "analysis complete")
 	log.Printf("Analysis complete on %s", path)
 }
 
@@ -49,9 +57,25 @@ func imageHandler(ws *websocket.Conn) {
 	analysis(ws, path)
 }
 
+func libraryHandler(ws *websocket.Conn) {
+	var data = new(Library)
+	if err := websocket.JSON.Receive(ws, &data); err != nil {
+		log.Printf("Error in the library handler %s", err)
+	}
+	//confirm data.User
+	log.Printf("Connection from %s", data.User)
+	//Go through song list.
+	//Fuzzy search for song, if none found
+	//Add new song
+	//Associate song with user
+	//If firsttime, add all songs
+	//else delete songs they may no longer have
+}
+
 func main() {
 	log.Println("Starting Lyra Server")
 	http.Handle("/image", websocket.Handler(imageHandler))
+	http.Handle("/library", websocket.Handler(libraryHandler))
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		log.Printf("Something went bad with the server: %s", err)
