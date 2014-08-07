@@ -32,12 +32,13 @@ if __name__ == "__main__":
     secondary_rgb = list(center[1])
     primary_rgb.reverse()
     secondary_rgb.reverse()
-    #Calculating HSV
-    (primary_hue, _, _) = colorsys.rgb_to_hls(primary_rgb[0]/256.0, primary_rgb[1]/256.0, primary_rgb[2]/256.0)
+    #Calculating HLS
+    (primary_hue, lighting, _) = colorsys.rgb_to_hls(primary_rgb[0]/256.0, primary_rgb[1]/256.0, primary_rgb[2]/256.0)
     (secondary_hue, _, _) = colorsys.rgb_to_hls(secondary_rgb[0]/256.0, secondary_rgb[1]/256.0, secondary_rgb[2]/256.0)
 
     result.setdefault("Primary", {"rgb" : primary_rgb, "hue" : primary_hue*360})
     result.setdefault("Secondary", {"rgb" : secondary_rgb, "hue" : secondary_hue*360})
+    result.setdefault("Lighting", lighting*100)
 
     # Debug
     if debug:
