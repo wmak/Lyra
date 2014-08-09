@@ -5,11 +5,12 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"time"
 )
 
 type Library struct {
 	User  string
-	Songs []Song
+	Data []Song
 }
 
 type Song struct {
@@ -19,7 +20,7 @@ type Song struct {
 	Genre  string
 }
 
-func random_genre() string{
+func random_genre() string {
 	genres := []string{
 		"Alternative Rock",
 		"College Rock",
@@ -138,8 +139,7 @@ func random_genre() string{
 	return genres[rand.Intn(len(genres))]
 }
 
-
-func random_name(x int) string{
+func random_name(x int) string {
 	song_names := []string{
 		"Gimme",
 		"Love",
@@ -168,19 +168,21 @@ func random_name(x int) string{
 		name += song_names[rand.Intn(len(song_names))]
 		name += " "
 	}
-	return name
+	return name[0:len(name)-1]
 }
 
 func main() {
 	var data = new(Library)
 	data.User = "Bob"
-	for i := 0; i < 1000; i++ {
+	rand.Seed( time.Now().UTC().UnixNano())
+	for i := 0; i < 10; i++ {
 		var song = new(Song)
 		song.Name = random_name(rand.Intn(5) + 1)
 		song.Artist = random_name(rand.Intn(5) + 1)
 		song.Length = rand.Int() % 720
 		song.Genre = random_genre()
-		data.Songs = append(data.Songs, *song)
+		log.Printf("%+v", song)
+		data.Data = append(data.Data, *song)
 	}
 	ws, err := websocket.Dial("ws://localhost:8080/library", "", "http://localhost")
 	if err != nil {

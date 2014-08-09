@@ -5,34 +5,81 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jinzhu/gorm"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
+	"time"
 )
 
 type ImageUpload struct {
-	User  string
-	Image string
+	User string
+	Data string
 }
 
 type Library struct {
-	User  string
-	Songs []Song
+	User string
+	Data []Song
+}
+
+type Person struct {
+	Id       int64
+	Name     string `sql:"not null"`
+	Gender   bool
+	Location string //validate it?
+	Password string //gotta hash that shit
+	Email    string
+	Songs    []Song
 }
 
 type Song struct {
-	Name   string
-	Artist string
-	Length int
+	Id     int64
+	Name   string `sql:"not null"`
 	Genre  string
+	Length int
+	Artist string
+	Nsfw   bool
+	Bpm    int
+	Volume int
+}
+
+type Listen struct {
+	Id        int64
+	CreatedAt time.Time `sql:"not null"`
+	SId       int64     `sql:"not null"`
+	PId       int64     `sql:"not null"`
+	Location  Loc
+	Skip      bool
+	Faces     int
+	Rgb       Colour
+	Hue       int
+	Lighting  int
+	Volume    int
+}
+
+type Loc struct {
+	Latitude  float64
+	Longitude float64
+}
+
+type Colour struct {
+	Red   float64
+	Green float64
+	Blue  float64
+}
+
+func errorcheck(err error, msg string) {
+	if err != nil {
+		log.Print(msg)
+	}
 }
 
 func analysis(ws *websocket.Conn, path string) {
 	_, err := exec.Command("python2.7", "analysis/analysis.py", path).Output()
-	if err != nil {
-		log.Fatal("error:", err)
-	}
+	errorcheck(err, "something went bad with analysis")
 	websocket.Message.Send(ws, "analysis complete")
 	log.Printf("Analysis complete on %s", path)
 }
@@ -44,7 +91,7 @@ func imageHandler(ws *websocket.Conn) {
 	}
 	//confirm data.User
 	log.Printf("Connection from %s", data.User)
-	Image, err := base64.StdEncoding.DecodeString(data.Image)
+	Image, err := base64.StdEncoding.DecodeString(data.Data)
 	if err != nil {
 		log.Fatal("error:", err)
 	}
@@ -57,25 +104,67 @@ func imageHandler(ws *websocket.Conn) {
 	analysis(ws, path)
 }
 
-func libraryHandler(ws *websocket.Conn) {
-	var data = new(Library)
-	if err := websocket.JSON.Receive(ws, &data); err != nil {
-		log.Printf("Error in the library handler %s", err)
+func libraryHandler(db gorm.DB) websocket.Handler {
+	return func(ws *websocket.Conn) {
+		var data = new(Library)
+		if err := websocket.JSON.Receive(ws, &data); err != nil {
+			log.Printf("Error in the library handler %s", err)
+		}
+		//confirm data.User
+		log.Printf("Connection from %s", data.User)
+		//Go through song list.
+		for i := 0; i < len(data.Data); i++ {
+			var songs = Song{}
+			db.Table("songs").Where("name = ?", data.Data[i].Name).First(&songs)
+			log.Printf("%+v", songs)
+			if songs.Id == 0 {
+				db.Create(data.Data[i])
+			}
+		}
+		//Fuzzy search for song, if none found
+		//Add new song
+		//Associate song with user
+		//If firsttime, add all songs
+		//else delete songs they may no longer have
 	}
-	//confirm data.User
-	log.Printf("Connection from %s", data.User)
-	//Go through song list.
-	//Fuzzy search for song, if none found
-	//Add new song
-	//Associate song with user
-	//If firsttime, add all songs
-	//else delete songs they may no longer have
+}
+
+func initDb() gorm.DB {
+	//Create a sql connection to the database
+	db, err := gorm.Open("mysql",
+		"root:password@/Lyra?charset=utf8&parseTime=True")
+	if err != nil {
+		log.Printf("yup not working: %s", err)
+	}
+	//Setup logging
+	db.LogMode(true)
+	return db
+}
+
+func initialize(db gorm.DB) {
+	log.Println("Initilaizing tables")
+	//drop any existing tables
+	db.DropTableIfExists(Person{})
+	db.DropTableIfExists(Listen{})
+	db.DropTableIfExists(Song{})
+	//add tables.
+	db.CreateTable(Person{})
+	db.CreateTable(Listen{})
+	db.CreateTable(Song{})
+	//add indexes
+	db.Model(Song{}).AddIndex("idx_song_name", "name")
 }
 
 func main() {
+	db := initDb()
+	if len(os.Args) > 1 {
+		if os.Args[1] == "-i" {
+			initialize(db)
+		}
+	}
 	log.Println("Starting Lyra Server")
 	http.Handle("/image", websocket.Handler(imageHandler))
-	http.Handle("/library", websocket.Handler(libraryHandler))
+	http.Handle("/library", websocket.Handler(libraryHandler(db)))
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		log.Printf("Something went bad with the server: %s", err)
