@@ -21,7 +21,7 @@ type ImageUpload struct {
 }
 
 type Library struct {
-	User string
+	User int64
 	Data []Song
 }
 
@@ -32,7 +32,7 @@ type Person struct {
 	Location string //validate it?
 	Password string //gotta hash that shit
 	Email    string
-	Songs    []Song
+	Songs    []Song `gorm:"many2many:person_library;"`
 }
 
 type Song struct {
@@ -111,19 +111,30 @@ func libraryHandler(db gorm.DB) websocket.Handler {
 			log.Printf("Error in the library handler %s", err)
 		}
 		//confirm data.User
-		log.Printf("Connection from %s", data.User)
-		//Go through song list.
-		for i := 0; i < len(data.Data); i++ {
-			var songs = Song{}
-			db.Table("songs").Where("name = ?", data.Data[i].Name).First(&songs)
-			log.Printf("%+v", songs)
-			if songs.Id == 0 {
-				db.Create(data.Data[i])
+		var user = Person{}
+		log.Printf("Connection from %d", data.User)
+		db.Table("persons").Where("id = ?", data.User).First(&user)
+		log.Printf("%+v", user)
+		//if user is unknown
+		if user.Id != 0 {
+			db.Model(&user).Association("Songs").Clear()
+			//Go through song list.
+			for i := 0; i < len(data.Data); i++ {
+				var songs = Song{}
+				//search for song, if none found
+				db.Table("songs").Where("name = ?", data.Data[i].Name).First(&songs)
+				log.Printf("%d", songs.Id)
+				if songs.Id == 0 {
+					//Associate song with user
+					db.Model(&user).Association("Songs").Append(data.Data[i])
+				} else {
+					db.Model(&user).Association("Songs").Append(songs)
+				}
 			}
+			user.Songs = data.Data
+		} else {
+			websocket.Message.Send(ws, "WHO IS THIS?")
 		}
-		//Fuzzy search for song, if none found
-		//Add new song
-		//Associate song with user
 		//If firsttime, add all songs
 		//else delete songs they may no longer have
 	}

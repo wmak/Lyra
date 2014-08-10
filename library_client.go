@@ -9,7 +9,7 @@ import (
 )
 
 type Library struct {
-	User  string
+	User  int64
 	Data []Song
 }
 
@@ -173,11 +173,11 @@ func random_name(x int) string {
 
 func main() {
 	var data = new(Library)
-	data.User = "Bob"
+	data.User = 2
 	rand.Seed( time.Now().UTC().UnixNano())
 	for i := 0; i < 10; i++ {
 		var song = new(Song)
-		song.Name = random_name(rand.Intn(5) + 1)
+		song.Name = random_name(rand.Intn(1) + 1)
 		song.Artist = random_name(rand.Intn(5) + 1)
 		song.Length = rand.Int() % 720
 		song.Genre = random_genre()
