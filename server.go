@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"code.google.com/p/go.crypto/pbkdf2"
 	"code.google.com/p/go.net/websocket"
 	"crypto/md5"
@@ -19,14 +20,12 @@ import (
 )
 
 type ImageUpload struct {
-	User string
+	Auth Authentication
 	Data string
 }
 
-//Create authenticated table with timeouts, so long as user has the right hash,
-//they're authenticated.
-
 type Authentication struct {
+	Id        int64
 	Key       []byte    `sql:"not null"`
 	User      int64     `sql:"not null"`
 	ExpiredBy time.Time `sql:"not null"`
@@ -38,7 +37,7 @@ type PersonUpload struct {
 }
 
 type Library struct {
-	User int64
+	Auth Authentication
 	Data []Song
 }
 
@@ -96,6 +95,13 @@ func errorcheck(err error, msg string) {
 	}
 }
 
+func validate_user(db gorm.DB, auth Authentication) bool {
+	existing := Authentication{}
+	db.First(&existing, auth.Id)
+	return existing.ExpiredBy.Unix() > time.Now().Unix() &&
+		bytes.Compare(existing.Key, auth.Key) == 0
+}
+
 func analysis(ws *websocket.Conn, path string) {
 	_, err := exec.Command("python2.7", "analysis/analysis.py", path).Output()
 	errorcheck(err, "something went bad with analysis")
@@ -103,24 +109,28 @@ func analysis(ws *websocket.Conn, path string) {
 	log.Printf("Analysis complete on %s", path)
 }
 
-func imageHandler(ws *websocket.Conn) {
-	var data = new(ImageUpload)
-	if err := websocket.JSON.Receive(ws, &data); err != nil {
-		log.Printf("Error in the image handler %s", err)
+func imageHandler(db gorm.DB) websocket.Handler {
+	return func(ws *websocket.Conn) {
+		var data = new(ImageUpload)
+		if err := websocket.JSON.Receive(ws, &data); err != nil {
+			log.Printf("Error in the image handler %s", err)
+		}
+		if !validate_user(db, data.Auth) {
+			log.Println("Invalid user")
+			return
+		}
+		Image, err := base64.StdEncoding.DecodeString(data.Data)
+		if err != nil {
+			log.Fatal("error:", err)
+		}
+		hasher := md5.New()
+		hasher.Write([]byte(Image))
+		Sum := hex.EncodeToString(hasher.Sum(nil))
+		path := "images/" + Sum + ".jpg"
+		ioutil.WriteFile(path, Image, 0644)
+		log.Printf("Saved new image at %s", path)
+		analysis(ws, path)
 	}
-	//confirm data.User
-	log.Printf("Connection from %s", data.User)
-	Image, err := base64.StdEncoding.DecodeString(data.Data)
-	if err != nil {
-		log.Fatal("error:", err)
-	}
-	hasher := md5.New()
-	hasher.Write([]byte(Image))
-	Sum := hex.EncodeToString(hasher.Sum(nil))
-	path := "images/" + Sum + ".jpg"
-	ioutil.WriteFile(path, Image, 0644)
-	log.Printf("Saved new image at %s", path)
-	analysis(ws, path)
 }
 
 func libraryHandler(db gorm.DB) websocket.Handler {
@@ -129,33 +139,27 @@ func libraryHandler(db gorm.DB) websocket.Handler {
 		if err := websocket.JSON.Receive(ws, &data); err != nil {
 			log.Printf("Error in the library handler %s", err)
 		}
-		//confirm data.User
-		var user = Person{}
-		log.Printf("Connection from %d", data.User)
-		db.Table("persons").Where("id = ?", data.User).First(&user)
-		log.Printf("%+v", user)
-		//if user is unknown
-		if user.Id != 0 {
-			db.Model(&user).Association("Songs").Clear()
-			//Go through song list.
-			for i := 0; i < len(data.Data); i++ {
-				var songs = Song{}
-				//search for song, if none found
-				db.Table("songs").Where("name = ?", data.Data[i].Name).First(&songs)
-				log.Printf("%d", songs.Id)
-				if songs.Id == 0 {
-					//Associate song with user
-					db.Model(&user).Association("Songs").Append(data.Data[i])
-				} else {
-					db.Model(&user).Association("Songs").Append(songs)
-				}
-			}
-			user.Songs = data.Data
-		} else {
-			websocket.Message.Send(ws, "WHO IS THIS?")
+		if !validate_user(db, data.Auth) {
+			log.Println("Invalid user")
+			return
 		}
-		//If firsttime, add all songs
-		//else delete songs they may no longer have
+		//confirm data.User
+		var user = Person{Id : data.Auth.User}
+		db.Model(&user).Association("Songs").Clear()
+		//Go through song list.
+		for i := 0; i < len(data.Data); i++ {
+			var songs = Song{}
+			//search for song, if none found
+			db.Table("songs").Where("name = ?", data.Data[i].Name).First(&songs)
+			log.Printf("%d", songs.Id)
+			if songs.Id == 0 {
+				//Associate song with user
+				db.Model(&user).Association("Songs").Append(data.Data[i])
+			} else {
+				db.Model(&user).Association("Songs").Append(songs)
+			}
+		}
+		user.Songs = data.Data
 	}
 }
 
@@ -208,6 +212,7 @@ func userHandler(db gorm.DB) websocket.Handler {
 				ExpiredBy: time.Now().Add(time.Duration(time.Hour)),
 			}
 			db.Save(&auth)
+			log.Println(auth)
 			websocket.JSON.Send(ws, &auth)
 		}
 	}
@@ -249,7 +254,7 @@ func main() {
 		}
 	}
 	log.Println("Starting Lyra Server")
-	http.Handle("/image", websocket.Handler(imageHandler))
+	http.Handle("/image", websocket.Handler(imageHandler(db)))
 	http.Handle("/library", websocket.Handler(libraryHandler(db)))
 	http.Handle("/user", websocket.Handler(userHandler(db)))
 	err := http.ListenAndServe(":8080", nil)
