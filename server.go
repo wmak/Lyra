@@ -43,14 +43,15 @@ type Library struct {
 }
 
 type Person struct {
-	Id       int64
-	Name     string `sql:"not null"`
-	Gender   bool
-	Location string //validate it? City.
-	Password []byte `sql:"not null"`
-	Salt     []byte `sql:"not null"`
-	Email    string
-	Songs    []Song `gorm:"many2many:person_library;"`
+	Id        int64
+	Name      string `sql:"not null"`
+	Gender    bool
+	Location  string //validate it? City.
+	Password  string
+	Encrypted []byte `sql:"not null"`
+	Salt      []byte `sql:"not null"`
+	Email     string `sql:"not null;unique"`
+	Songs     []Song `gorm:"many2many:person_library;"`
 }
 
 type Song struct {
@@ -162,27 +163,35 @@ func userHandler(db gorm.DB) websocket.Handler {
 	return func(ws *websocket.Conn) {
 		var data = new(PersonUpload)
 		var valid = false
-		var user = data.User
 		if err := websocket.JSON.Receive(ws, &data); err != nil {
 			log.Printf("Error in the library handler %s", err)
 		}
+		var user = data.User
 		if data.New {
 			log.Printf("creating a new user")
 			salt := make([]byte, 64)
 			rand.Read(salt)
 			password := pbkdf2.Key(
-				[]byte(data.User.Password),
+				[]byte(user.Password),
 				salt,
 				4096,
 				sha256.Size,
 				sha256.New)
 			log.Println(len(password))
-			user.Password = password
+			user.Encrypted = password
 			user.Salt = salt
 			db.Save(&user)
 			valid = true
 		} else {
-			log.Printf("validate user")
+			password := user.Password
+			db.Where("Email = ?", user.Email).First(&user)
+			password = string(pbkdf2.Key(
+				[]byte(password),
+				user.Salt,
+				4096,
+				sha256.Size,
+				sha256.New))
+			valid = password == string(user.Encrypted)
 		}
 		if valid {
 			key := make([]byte, 64)
@@ -194,12 +203,12 @@ func userHandler(db gorm.DB) websocket.Handler {
 				sha256.Size,
 				sha256.New)
 			auth := Authentication{
-				Key: password,
-				User: user.Id,
+				Key:       password,
+				User:      user.Id,
 				ExpiredBy: time.Now().Add(time.Duration(time.Hour)),
 			}
 			db.Save(&auth)
-			websocket.Message.Send(ws, auth)
+			websocket.JSON.Send(ws, &auth)
 		}
 	}
 }
