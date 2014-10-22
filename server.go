@@ -1,8 +1,11 @@
 package main
 
 import (
+	"code.google.com/p/go.crypto/pbkdf2"
 	"code.google.com/p/go.net/websocket"
 	"crypto/md5"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	_ "github.com/go-sql-driver/mysql"
@@ -20,6 +23,20 @@ type ImageUpload struct {
 	Data string
 }
 
+//Create authenticated table with timeouts, so long as user has the right hash,
+//they're authenticated.
+
+type Authentication struct {
+	Key       []byte    `sql:"not null"`
+	User      int64     `sql:"not null"`
+	ExpiredBy time.Time `sql:"not null"`
+}
+
+type PersonUpload struct {
+	New  bool
+	User Person
+}
+
 type Library struct {
 	User int64
 	Data []Song
@@ -29,8 +46,9 @@ type Person struct {
 	Id       int64
 	Name     string `sql:"not null"`
 	Gender   bool
-	Location string //validate it?
-	Password string //gotta hash that shit
+	Location string //validate it? City.
+	Password []byte `sql:"not null"`
+	Salt     []byte `sql:"not null"`
 	Email    string
 	Songs    []Song `gorm:"many2many:person_library;"`
 }
@@ -140,6 +158,54 @@ func libraryHandler(db gorm.DB) websocket.Handler {
 	}
 }
 
+func userHandler(db gorm.DB) websocket.Handler {
+	return func(ws *websocket.Conn) {
+		var data = new(PersonUpload)
+		var valid = false
+		var user = data.User
+		if err := websocket.JSON.Receive(ws, &data); err != nil {
+			log.Printf("Error in the library handler %s", err)
+		}
+		if data.New {
+			log.Printf("creating a new user")
+			salt := make([]byte, 64)
+			rand.Read(salt)
+			password := pbkdf2.Key(
+				[]byte(data.User.Password),
+				salt,
+				4096,
+				sha256.Size,
+				sha256.New)
+			log.Println(len(password))
+			user.Password = password
+			user.Salt = salt
+			db.Save(&user)
+			valid = true
+		} else {
+			log.Printf("validate user")
+		}
+		if valid {
+			salt := make([]byte, 64)
+			rand.Read(salt)
+			key := make([]byte, 64)
+			rand.Read(key)
+			password := pbkdf2.Key(
+				key,
+				key,
+				4096,
+				sha256.Size,
+				sha256.New)
+			auth := Authentication{
+				Key: password,
+				User: user.Id,
+				ExpiredBy: time.Now().Add(time.Duration(time.Hour)),
+			}
+			db.Save(&auth)
+			websocket.Message.Send(ws, auth)
+		}
+	}
+}
+
 func initDb() gorm.DB {
 	//Create a sql connection to the database
 	db, err := gorm.Open("mysql",
@@ -158,10 +224,12 @@ func initialize(db gorm.DB) {
 	db.DropTableIfExists(Person{})
 	db.DropTableIfExists(Listen{})
 	db.DropTableIfExists(Song{})
+	db.DropTableIfExists(Authentication{})
 	//add tables.
 	db.CreateTable(Person{})
 	db.CreateTable(Listen{})
 	db.CreateTable(Song{})
+	db.CreateTable(Authentication{})
 	//add indexes
 	db.Model(Song{}).AddIndex("idx_song_name", "name")
 }
@@ -176,6 +244,7 @@ func main() {
 	log.Println("Starting Lyra Server")
 	http.Handle("/image", websocket.Handler(imageHandler))
 	http.Handle("/library", websocket.Handler(libraryHandler(db)))
+	http.Handle("/user", websocket.Handler(userHandler(db)))
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		log.Printf("Something went bad with the server: %s", err)
