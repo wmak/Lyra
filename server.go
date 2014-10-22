@@ -117,6 +117,7 @@ func imageHandler(db gorm.DB) websocket.Handler {
 		}
 		if !validate_user(db, data.Auth) {
 			log.Println("Invalid user")
+			websocket.Message.Send(ws, "WHO IS THIS?")
 			return
 		}
 		Image, err := base64.StdEncoding.DecodeString(data.Data)
@@ -141,6 +142,7 @@ func libraryHandler(db gorm.DB) websocket.Handler {
 		}
 		if !validate_user(db, data.Auth) {
 			log.Println("Invalid user")
+			websocket.Message.Send(ws, "WHO IS THIS?")
 			return
 		}
 		//confirm data.User
