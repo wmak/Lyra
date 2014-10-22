@@ -47,7 +47,7 @@ type Person struct {
 	Name      string `sql:"not null"`
 	Gender    bool
 	Location  string //validate it? City.
-	Password  string
+	Password  string `sql:"-"`
 	Encrypted []byte `sql:"not null"`
 	Salt      []byte `sql:"not null"`
 	Email     string `sql:"not null;unique"`
