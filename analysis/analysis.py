@@ -19,8 +19,14 @@ if __name__ == "__main__":
     gray_image = cv2.equalizeHist(cv2.cvtColor(image, cv.CV_RGB2GRAY))
 
     #Face Detection
-    face_cascade = cv2.CascadeClassifier('analysis/haarcascade_frontalface_default.xml')
-    faces = face_cascade.detectMultiScale(gray_image, 1.1, 2, cv.CV_HAAR_SCALE_IMAGE, (20,20))
+    face_cascade = cv2.CascadeClassifier('analysis/cascade.xml')
+    faces = face_cascade.detectMultiScale(
+            gray_image,
+            1.05,
+            4,
+            0,
+            (18,18)
+        )
     result.setdefault("Faces", len(faces))
 
     #Colour Analysis
