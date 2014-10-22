@@ -185,8 +185,6 @@ func userHandler(db gorm.DB) websocket.Handler {
 			log.Printf("validate user")
 		}
 		if valid {
-			salt := make([]byte, 64)
-			rand.Read(salt)
 			key := make([]byte, 64)
 			rand.Read(key)
 			password := pbkdf2.Key(
