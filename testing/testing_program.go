@@ -2,19 +2,19 @@ package main
 
 import (
 	"code.google.com/p/go.net/websocket"
+	"encoding/json"
+	"fmt"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jinzhu/gorm"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"time"
-	"encoding/json"
-	"io/ioutil"
-	"github.com/jinzhu/gorm"
-    _ "github.com/go-sql-driver/mysql"
-	"fmt"
 )
 
 type Library struct {
-	User  int64
+	User int64
 	Data []Song
 }
 
@@ -47,7 +47,7 @@ func random_name(x int, song_names []string) string {
 		name += song_names[rand.Intn(len(song_names))]
 		name += " "
 	}
-	return name[0:len(name)-1]
+	return name[0 : len(name)-1]
 }
 
 func initDb() gorm.DB {
@@ -64,84 +64,82 @@ func initDb() gorm.DB {
 
 func main() {
 	//for i := 0; i < 50; i++ {
-		var data = new(Library)
+	var data = new(Library)
 
-		// opens genres.json and dumps contents into list_of_genres
-		genre_file_contents, err := ioutil.ReadFile("genres.json")
-		list_of_genres := &Genre{}
-		json.Unmarshal(genre_file_contents, &list_of_genres)
+	// opens genres.json and dumps contents into list_of_genres
+	genre_file_contents, err := ioutil.ReadFile("genres.json")
+	list_of_genres := &Genre{}
+	json.Unmarshal(genre_file_contents, &list_of_genres)
 
-		// opens songnames.json and dumps contents into list_of_titles
-		song_names_file_contents, err := ioutil.ReadFile("song_names.json")
-		list_of_titles := &Song_Titles{}
-		json.Unmarshal(song_names_file_contents, &list_of_titles)
+	// opens songnames.json and dumps contents into list_of_titles
+	song_names_file_contents, err := ioutil.ReadFile("song_names.json")
+	list_of_titles := &Song_Titles{}
+	json.Unmarshal(song_names_file_contents, &list_of_titles)
 
-		data.User = 1
-		rand.Seed( time.Now().UTC().UnixNano())
-		for i := 0; i < 10; i++ {
-			var song = new(Song)
-			song.Name = random_name(rand.Intn(1) + 1, list_of_titles.Name)
-			song.Artist = random_name(rand.Intn(5) + 1, list_of_titles.Name)
-			song.Length = rand.Int() % 7200
-			song.Genre = random_genre(list_of_genres.Name)
-			log.Printf("%+v", song)
-			data.Data = append(data.Data, *song)
+	data.User = 1
+	rand.Seed(time.Now().UTC().UnixNano())
+	for i := 0; i < 10; i++ {
+		var song = new(Song)
+		song.Name = random_name(rand.Intn(1)+1, list_of_titles.Name)
+		song.Artist = random_name(rand.Intn(5)+1, list_of_titles.Name)
+		song.Length = rand.Int() % 7200
+		song.Genre = random_genre(list_of_genres.Name)
+		log.Printf("%+v", song)
+		data.Data = append(data.Data, *song)
+	}
+
+	var db = initDb()
+	// get the number of rows in the songs table
+	var num_of_songs = new(Table_Length)
+	db.Table("songs").Count(&num_of_songs.Length)
+
+	// create connection to server
+	ws, err := websocket.Dial("ws://localhost:8080/library", "", "http://localhost")
+	if err != nil {
+		log.Printf("Something went bad %s", err)
+	}
+	// send data to server
+	websocket.JSON.Send(ws, &data)
+	var out []byte
+	for {
+		if err := websocket.Message.Receive(ws, &out); err == io.EOF {
+			log.Printf("Exiting, %s", err)
+			break
 		}
+		log.Printf("final result %s", out)
+	}
 
-		var db = initDb()
-		// get the number of rows in the songs table
-		var num_of_songs = new(Table_Length)
-		db.Table("songs").Count(&num_of_songs.Length)
+	// GET THE ROWS THAT ARE IN THE TABLE AFTER THE NUMBER OF ROWS
+	// THAT WAS GRABBED FROM THE SERVER AND CHECK IF IT IS THE SAME
+	// AS WHAT WAS SENT
 
-		// create connection to server
-		ws, err := websocket.Dial("ws://localhost:8080/library", "", "http://localhost")
-		if err != nil {
-			log.Printf("Something went bad %s", err)
+	// get the songs that was sent to the server
+	var server_data = new(Library)
+	log.Printf("%v", server_data)
+	//for i := 0; i < len(data.Data); i++ {
+	//db.Where("name = ?", data.Data[i].Name).Find(&server_data.Data)
+	//db.First(&server_data.Data, i + int(num_of_songs.Length) + 1)
+	//}
+	db.Last(&server_data.Data)
+
+	fmt.Println("Sent data")
+	fmt.Println(data)
+	fmt.Println()
+	fmt.Println("Server data")
+	fmt.Println(server_data)
+	fmt.Println()
+	// use a loop to go through each song and check if data matches
+	var same_data = true
+	for i := 0; i < len(data.Data) && same_data; i++ {
+		if data.Data[i] != server_data.Data[i] {
+			same_data = false
+			fmt.Println("Data does not match!")
+			fmt.Println("From sent data, song #", i+1, data.Data[i])
+			fmt.Println("From server data", server_data.Data[i])
 		}
-		// send data to server
-		websocket.JSON.Send(ws, &data)
-		var out []byte
-		for {
-			if err := websocket.Message.Receive(ws, &out); err == io.EOF {
-				log.Printf("Exiting, %s", err)
-				break
-			}
-			log.Printf("final result %s", out)
-		}
-
-
-
-		// GET THE ROWS THAT ARE IN THE TABLE AFTER THE NUMBER OF ROWS
-		// THAT WAS GRABBED FROM THE SERVER AND CHECK IF IT IS THE SAME
-		// AS WHAT WAS SENT
-
-		// get the songs that was sent to the server
-		var server_data = new(Library)
-		log.Printf("%v", server_data)
-		//for i := 0; i < len(data.Data); i++ {
-			//db.Where("name = ?", data.Data[i].Name).Find(&server_data.Data)
-			//db.First(&server_data.Data, i + int(num_of_songs.Length) + 1)
-		//}
-		db.Last(&server_data.Data)
-
-		fmt.Println("Sent data")
-		fmt.Println(data)
-		fmt.Println()
-		fmt.Println("Server data")
-		fmt.Println(server_data)
-		fmt.Println()
-		// use a loop to go through each song and check if data matches
-		var same_data = true
-		for i := 0; i < len(data.Data) && same_data; i++ {
-			if data.Data[i] != server_data.Data[i] {
-				same_data = false
-				fmt.Println("Data does not match!")
-				fmt.Println("From sent data, song #", i+1, data.Data[i])
-				fmt.Println("From server data", server_data.Data[i])
-			}
-		}
-		// if !same_data {
-		// 	break
-		// }
+	}
+	// if !same_data {
+	// 	break
+	// }
 	//}
 }
