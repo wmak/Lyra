@@ -179,7 +179,7 @@ func main() {
 		var song = new(Song)
 		song.Name = random_name(rand.Intn(1) + 1)
 		song.Artist = random_name(rand.Intn(5) + 1)
-		song.Length = rand.Int() % 720
+		song.Length = rand.Int() % 7200
 		song.Genre = random_genre()
 		log.Printf("%+v", song)
 		data.Data = append(data.Data, *song)
