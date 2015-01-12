@@ -38,13 +38,18 @@ func TestSongWithNullEverything(t *testing.T) {
 
 // send a song which has a null name to the server
 func TestSongWithNullName(t *testing.T) {
+	// create a library which will contain the song
 	data := new(Library)
 	data.User = 1
+	// create a new song
 	var song = new(Song)
+	// set artist, length, and genre for the song but leave name as null
 	song.Artist = "Null Name Test Artist"
-	song.Length = 6900
+	song.Length = 690
 	song.Genre = "Null Name Test Genre"
+	// add the song into library
 	data.Data = append(data.Data, *song)
+	// send the library to the server and get what the server added to server_data
 	server_data := send_data(*data)
 	// new(Library).Data is just an empty slice, []
 	if !(reflect.DeepEqual(server_data.Data, new(Library).Data)) {
@@ -58,7 +63,7 @@ func TestSongWithNullArtist(t *testing.T) {
 	data.User = 1
 	var song = new(Song)
 	song.Name = "Null Artist Test Song"
-	song.Length = 6900
+	song.Length = 690
 	song.Genre = "Null Artist Test Genre"
 	data.Data = append(data.Data, *song)
 	server_data := send_data(*data)
@@ -89,7 +94,7 @@ func TestSongWithNullGenre(t *testing.T) {
 	var song = new(Song)
 	song.Name = "Null Genre Test Song"
 	song.Artist = "Null Genre Test Artist"
-	song.Length = 6900
+	song.Length = 690
 	data.Data = append(data.Data, *song)
 	server_data := send_data(*data)
 	if !(reflect.DeepEqual(server_data.Data, data.Data)) {
@@ -107,7 +112,7 @@ func TestSendSameSongTwice(t *testing.T) {
 		var song = new(Song)
 		song.Name = "Duplicate Song Test"
 		song.Artist = "Duplicate Artist"
-		song.Length = 6900
+		song.Length = 690
 		song.Genre = "Duplicate Genre"
 		data.Data = append(data.Data, *song)
 		if i == 0 {
@@ -129,11 +134,11 @@ func TestTwoSongsSameName(t *testing.T) {
 		song.Name = "Same Name Test"
 		if i == 0 {
 			song.Artist = "Same Name Test Artist"
-			song.Length = 5000
+			song.Length = 500
 			song.Genre = "Blues"
 		} else {
 			song.Artist = "Same Name Test Artist 2"
-			song.Length = 5500
+			song.Length = 550
 			song.Genre = "Pop"
 		}
 		data.Data = append(data.Data, *song)
@@ -153,11 +158,11 @@ func TestTwowSongsSameArtist(t *testing.T) {
 		song.Artist = "Same Artist Test"
 		if i == 0 {
 			song.Name = "Same Artist Test Song"
-			song.Length = 4750
+			song.Length = 475
 			song.Genre = "Hip Hop"
 		} else {
 			song.Name = "Same Artist Test Song 2"
-			song.Length = 5200
+			song.Length = 520
 			song.Genre = "Rock"
 		}
 		data.Data = append(data.Data, *song)
@@ -174,7 +179,7 @@ func TestTwoSongsSameLength(t *testing.T) {
 	data.User = 1
 	for i := 0; i < 2; i++ {
 		var song = new(Song)
-		song.Length = 3900
+		song.Length = 390
 		if i == 0 {
 			song.Name = "Same Length Test Song"
 			song.Artist = "Same Length Test Artist"
@@ -202,11 +207,11 @@ func TestTwoSongsSameGenre(t *testing.T) {
 		if i == 0 {
 			song.Name = "Same Genre Test Song"
 			song.Artist = "Same Genre Test Artist"
-			song.Length = 3000
+			song.Length = 300
 		} else {
 			song.Name = "Same Genre Test Song 2"
 			song.Artist = "Same Genre Test Artist 2"
-			song.Length = 5300
+			song.Length = 530
 		}
 		data.Data = append(data.Data, *song)
 	}
