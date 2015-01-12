@@ -85,7 +85,7 @@ func prepare_data() Library {
 		var song = new(Song)
 		song.Name = random_name(rand.Intn(1)+1, list_of_titles.Name)
 		song.Artist = random_name(rand.Intn(5)+1, list_of_titles.Name)
-		song.Length = rand.Int() % 7200
+		song.Length = rand.Int() % 720
 		song.Genre = random_genre(list_of_genres.Name)
 		log.Printf("%+v", song)
 		data.Data = append(data.Data, *song)

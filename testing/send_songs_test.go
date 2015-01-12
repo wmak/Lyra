@@ -5,6 +5,7 @@ import (
 	"testing"
 )
 
+// uses testing_program.go to generate 10 songs randomly and then sends them to the server
 func TestSendTenRandomSongs(t *testing.T) {
 	data := prepare_data()
 	server_data := send_data(data)
@@ -13,6 +14,7 @@ func TestSendTenRandomSongs(t *testing.T) {
 	}
 }
 
+// uses testing_program.go to generate 1 song randomly and then sends them to the server
 func TestSendOneSong(t *testing.T) {
 	data := prepare_one_song()
 	server_data := send_data(data)
@@ -21,6 +23,7 @@ func TestSendOneSong(t *testing.T) {
 	}
 }
 
+// send a song which has all null data to the server
 func TestSongWithNullEverything(t *testing.T) {
 	data := new(Library)
 	data.User = 1
@@ -33,6 +36,7 @@ func TestSongWithNullEverything(t *testing.T) {
 	}
 }
 
+// send a song which has a null name to the server
 func TestSongWithNullName(t *testing.T) {
 	data := new(Library)
 	data.User = 1
@@ -48,6 +52,7 @@ func TestSongWithNullName(t *testing.T) {
 	}
 }
 
+// send a song which has a null artist to the server
 func TestSongWithNullArtist(t *testing.T) {
 	data := new(Library)
 	data.User = 1
@@ -62,6 +67,7 @@ func TestSongWithNullArtist(t *testing.T) {
 	}
 }
 
+// send a song which has a null length to the server
 func TestSongWithNullLength(t *testing.T) {
 	data := new(Library)
 	data.User = 1
@@ -76,6 +82,7 @@ func TestSongWithNullLength(t *testing.T) {
 	}
 }
 
+// send a song which has a null genre to the server
 func TestSongWithNullGenre(t *testing.T) {
 	data := new(Library)
 	data.User = 1
@@ -90,6 +97,7 @@ func TestSongWithNullGenre(t *testing.T) {
 	}
 }
 
+// send the same song twice, only the first song should be added to the database
 func TestSendSameSongTwice(t *testing.T) {
 	data := new(Library)
 	data.User = 1
@@ -112,6 +120,7 @@ func TestSendSameSongTwice(t *testing.T) {
 	}
 }
 
+// send two songs with the same name but different data, both songs should be added
 func TestTwoSongsSameName(t *testing.T) {
 	data := new(Library)
 	data.User = 1
@@ -135,6 +144,7 @@ func TestTwoSongsSameName(t *testing.T) {
 	}
 }
 
+// send two songs with the same artist but different data, both songs should be added
 func TestTwowSongsSameArtist(t *testing.T) {
 	data := new(Library)
 	data.User = 1
@@ -158,6 +168,7 @@ func TestTwowSongsSameArtist(t *testing.T) {
 	}
 }
 
+// send two songs with the same length but different data, both songs should be added
 func TestTwoSongsSameLength(t *testing.T) {
 	data := new(Library)
 	data.User = 1
@@ -181,6 +192,7 @@ func TestTwoSongsSameLength(t *testing.T) {
 	}
 }
 
+// send two songs with the same genre but different data, both songs should be added
 func TestTwoSongsSameGenre(t *testing.T) {
 	data := new(Library)
 	data.User = 1
