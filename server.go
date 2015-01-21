@@ -177,6 +177,11 @@ func userHandler(db gorm.DB) websocket.Handler {
 			log.Printf("creating a new user")
 			salt := make([]byte, 64)
 			rand.Read(salt)
+			if user.Password == "" {
+				log.Println("User without password")
+				websocket.Message.Send(ws, "... WHY ARE YOU SIGNING UP WITHOUT A PASSWORD")
+				return
+			}
 			password := pbkdf2.Key(
 				[]byte(user.Password),
 				salt,
