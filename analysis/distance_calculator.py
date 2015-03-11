@@ -1,19 +1,17 @@
 import numpy
 import sqlite3, sys
-from scipy.stats import multivariate_normal
 import random
 
 def pdf_mulvariate_gauss(x, mu, cov):
-    part1 = 1 / ((2 * numpy.pi)**13 * numpy.linalg.det(cov)) ** (1.0/2.0)
-    part2 = (-1 / 2) * (x - mu).T * numpy.linalg.inv(cov) * (x - mu)
-    print part2
+    part1 = 1 / (2 * numpy.pi)**(6.5) * 1 / numpy.linalg.det(cov) ** (1.0/2.0)
+    part2 = (-1 / 2) * (x - mu).T.dot(numpy.linalg.inv(cov).dot(x - mu))
     return float(part1 * numpy.exp(part2))
 
 def combine_points(alpha, beta):
     sigma = alpha["sigma"] + beta["sigma"]
     usigma = alpha["usigma"] + beta["usigma"]
     n = alpha["n"] + beta["n"]
-    mean = (alpha["n"] * alpha["mean"] + beta["n"] * beta["mean"]) / n
+    mean = usigma[0] / n
     cov = (sigma -\
           ((numpy.transpose([mean]*13)) * usigma) -\
           (usigma.T * (numpy.array([mean]*13))) +\
@@ -27,13 +25,7 @@ def combine_points(alpha, beta):
     return new
 
 def distance(center, point):
-    try:
-        var = multivariate_normal(mean = center["mean"], cov = center["cov"])
-        p = var.pdf(point["mean"])
-        print p
-        return p
-    except:
-        return -1
+    return pdf_mulvariate_gauss(point["mean"], center["mean"], center["cov"])
 
 if __name__ == "__main__":
     n_centers = sys.argv[1]
@@ -67,6 +59,7 @@ if __name__ == "__main__":
         for song in songs:
             # Calculate the distance between each center and a song
             distances = [distance(center["data"], data[song]) for center in centers.values()]
+            print distances
             # Append this song to the center it's closest to
             centers[distances.index(max(distances))]["cluster"].append(data[song])
         if delta < 0.1:
