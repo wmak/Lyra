@@ -19,8 +19,8 @@ def analyze_file(filename):
     return engine.readAllOutputs()
 
 def setup_cov(mfcc):
-    sigma = numpy.array([[0]*13]*13)
-    usigma = numpy.array([[0]*13]*13)
+    sigma = numpy.array([[0]*13]*13, dtype="object")
+    usigma = numpy.array([[0]*13]*13, dtype="object")
     for row in mfcc:
         # Calculate \Sigma X_i
         usigma += [row]*13
@@ -77,9 +77,6 @@ if __name__ == "__main__":
                 sigma, usigma = setup_cov(mfcc)
                 mean = numpy.mean(mfcc, 0) # calculate mean
                 n = mfcc.shape[0]
-                test =  numpy.array([[0]*13]*13)
-                for row in mfcc:
-                    test += numpy.transpose([mean]) * row
                 nmean = numpy.transpose([mean]*13)
                 cov =  numpy.cov(mfcc.T) # calculate covariance
                 mfccname = str(hash(data["mfcc"].data)).replace("-", "")
