@@ -18,12 +18,13 @@ def analyze_file(filename):
     file_processor.processFile(engine, filename)
     return engine.readAllOutputs()
 
-def setup_cov(mfcc):
-    sigma = numpy.array([[0]*13]*13, dtype="object")
-    usigma = numpy.array([[0]*13]*13, dtype="object")
-    for row in mfcc:
+def setup_cov(matrix):
+    width = matrix.shape[1]
+    sigma = numpy.array([[0]*width]*width, dtype="object")
+    usigma = numpy.array([[0]*width]*width, dtype="object")
+    for row in matrix:
         # Calculate \Sigma X_i
-        usigma += [row]*13
+        sigma += [row]*width
         # Calculate the \Sigma X_iX_i
         # use [row] because row.T on a 1D makes no sense
         sigma += numpy.transpose([row]) * row
